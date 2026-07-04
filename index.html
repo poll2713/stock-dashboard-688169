@@ -81,6 +81,12 @@
     <div id="chart-dist" class="chart" style="height: 260px;"></div>
   </div>
 
+  <!-- OBV 能量潮 -->
+  <div class="chart-card">
+    <h3>OBV 能量潮指标 (On Balance Volume)</h3>
+    <div id="chart-obv" class="chart" style="height: 320px;"></div>
+  </div>
+
   <div class="footer">
     本看板由 Python + ECharts 自动生成 | 仅供学习研究使用，不构成任何投资建议
   </div>
@@ -248,9 +254,50 @@ chartD.setOption({
   }]
 });
 
+// ── OBV 能量潮 ──
+const obvData = [];
+let obvVal = 0;
+for (let i = 0; i < D.kline.length; i++) {
+  if (i > 0) {
+    const todayClose = D.kline[i][1];
+    const yestClose = D.kline[i-1][1];
+    if (todayClose > yestClose) obvVal += D.vol[i].value;
+    else if (todayClose < yestClose) obvVal -= D.vol[i].value;
+  }
+  obvData.push(obvVal);
+}
+// OBV 20日均线
+const obvMA = [];
+for (let i = 0; i < obvData.length; i++) {
+  if (i < 19) { obvMA.push(null); continue; }
+  let sum = 0;
+  for (let j = i - 19; j <= i; j++) sum += obvData[j];
+  obvMA.push(Math.round(sum / 20));
+}
+const chartOBV = echarts.init(document.getElementById('chart-obv'));
+chartOBV.setOption({
+  tooltip: { ...tip, order: 'seriesDesc', formatter: (p) => {
+    let h = p[0].axisValue + '<br/>';
+    p.forEach(s => { if (s.value != null) h += s.marker + s.seriesName + ': ' + s.value.toLocaleString() + '<br/>'; });
+    return h;
+  }},
+  legend: { data: ['OBV', 'OBV MA20'], top: 0, textStyle: { fontSize: 11 } },
+  grid: { left: 70, right: 30, top: 30, bottom: 60 },
+  xAxis: { ...xAxis, ...{ axisLine }, axisLabel: { fontSize: 10 } },
+  yAxis: { type: 'value', name: 'OBV', splitLine: { lineStyle: { color: '#f0f0f0' } } },
+  dataZoom,
+  series: [
+    { name: 'OBV', type: 'bar', data: obvData.map((v, i) => {
+      const c = D.kline[i];
+      return { value: v, itemStyle: { color: c[1] >= c[0] ? UP : DOWN, opacity: 0.6 } };
+    }), barWidth: '60%' },
+    { name: 'OBV MA20', type: 'line', data: obvMA, symbol: 'none', lineStyle: { width: 1.5, color: '#4a90d9' } },
+  ]
+});
+
 // ── 响应式 ──
 window.addEventListener('resize', () => {
-  [chartK, chartV, chartM, chartJ, chartR, chartB, chartD].forEach(c => c.resize());
+  [chartK, chartV, chartM, chartJ, chartR, chartB, chartD, chartOBV].forEach(c => c.resize());
 });
 </script>
 </body>
